@@ -14,6 +14,7 @@ namespace AutoRepairWorkshop
             LoadPersonnel();
         }
 
+        // Получает список сотрудников из базы и формирует карточки
         private void LoadPersonnel()
         {
             flowLayoutPanel1.Controls.Clear();
@@ -35,6 +36,7 @@ namespace AutoRepairWorkshop
                            IFNULL(b.naimenovanie, '—') AS brigada,
                            IFNULL(m.naimenovanie, '—') AS masterskaya,
                            p.kod_brigady,
+                           p.kod_masterskoy,
                            (SELECT COUNT(*) FROM remont_avto r WHERE r.kod_brigady = p.kod_brigady) AS repair_count
                     FROM personal p
                     LEFT JOIN brigady b ON p.kod_brigady = b.kod_brigady
@@ -51,17 +53,23 @@ namespace AutoRepairWorkshop
                         string brigada = reader["brigada"].ToString();
                         string masterskaya = reader["masterskaya"].ToString();
                         int repairCount = Convert.ToInt32(reader["repair_count"]);
+                        int kodBrig = Convert.ToInt32(reader["kod_brigady"]);
+                        int kodMaster = Convert.ToInt32(reader["kod_masterskoy"]);
                         string status = repairCount > 0 ? $"{repairCount} ремонт(ов)" : "Нет ремонтов";
 
                         var card = CreateCard(
-                            "Сотрудник",
-                            fio,
-                            "Должность: " + dolzhnost,
-                            "ИНН: " + inn,
-                            "Мастерская: " + masterskaya,
-                            "Бригада: " + brigada,
-                            status,
-                            inn
+                            title: "Сотрудник",
+                            name: fio,
+                            line1: "Должность: " + dolzhnost,
+                            line2: "ИНН: " + inn,
+                            line3: "Мастерская: " + masterskaya,
+                            line4: "Бригада: " + brigada,
+                            status: status,
+                            inn: inn,
+                            fio: fio,
+                            dolzhnost: dolzhnost,
+                            kodBrig: kodBrig,
+                            kodMaster: kodMaster
                         );
                         flowLayoutPanel1.Controls.Add(card);
                     }
@@ -69,7 +77,21 @@ namespace AutoRepairWorkshop
             }
         }
 
-        private Panel CreateCard(string title, string name, string line1, string line2, string line3, string line4, string status, string inn)
+        // Создаёт карточку сотрудника
+        // Передаются также исходные значения полей для редактирования
+        private Panel CreateCard(
+            string title,
+            string name,
+            string line1,
+            string line2,
+            string line3,
+            string line4,
+            string status,
+            string inn,
+            string fio,
+            string dolzhnost,
+            int kodBrig,
+            int kodMaster)
         {
             Panel panel = new Panel
             {
@@ -104,6 +126,13 @@ namespace AutoRepairWorkshop
                 Width = 100
             };
 
+            Button editButton = new Button
+            {
+                Text = "Редактировать",
+                Location = new Point(120, panel.Height - 35),
+                Width = 100
+            };
+
             deleteButton.Click += (s, e) =>
             {
                 if (MessageBox.Show("Удалить сотрудника?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -113,9 +142,15 @@ namespace AutoRepairWorkshop
                 }
             };
 
+            editButton.Click += (s, e) =>
+            {
+                ShowEditPersonnelForm(fio, dolzhnost, inn, kodBrig, kodMaster);
+            };
+
             panel.Controls.Add(lblText);
             panel.Controls.Add(lblStatus);
             panel.Controls.Add(deleteButton);
+            panel.Controls.Add(editButton);
 
             return panel;
         }
@@ -141,6 +176,7 @@ namespace AutoRepairWorkshop
             }
         }
 
+        // Окно добавления нового сотрудника
         private void ShowAddPersonnelForm()
         {
             Form addForm = new Form
@@ -237,6 +273,79 @@ namespace AutoRepairWorkshop
             addForm.Controls.Add(saveButton);
 
             addForm.ShowDialog();
+        }
+
+        // Форма редактирования сотрудника
+        private void ShowEditPersonnelForm(string fio, string dolzhnost, string inn, int kodBrigady, int kodMasterskoy)
+        {
+            Form editForm = new Form
+            {
+                Text = "Редактирование сотрудника",
+                Size = new Size(400, 340),
+                StartPosition = FormStartPosition.CenterParent
+            };
+
+            TextBox fioBox = new TextBox { Location = new Point(10, 20), Width = 350, Text = fio };
+            Label fioLabel = new Label { Text = "ФИО", Location = new Point(10, 0), AutoSize = true };
+
+            TextBox dolzhnostBox = new TextBox { Location = new Point(10, 70), Width = 350, Text = dolzhnost };
+            Label dolzhnostLabel = new Label { Text = "Должность", Location = new Point(10, 50), AutoSize = true };
+
+            NumericUpDown brigBox = new NumericUpDown { Minimum = 1, Maximum = 100, Location = new Point(10, 120), Width = 350, Value = kodBrigady };
+            Label brigLabel = new Label { Text = "Код бригады", Location = new Point(10, 100), AutoSize = true };
+
+            NumericUpDown mastBox = new NumericUpDown { Minimum = 1, Maximum = 100, Location = new Point(10, 170), Width = 350, Value = kodMasterskoy };
+            Label mastLabel = new Label { Text = "Код мастерской", Location = new Point(10, 150), AutoSize = true };
+
+            Button saveButton = new Button { Text = "Сохранить", Location = new Point(10, 220), Width = 100 };
+
+            saveButton.Click += (s, e) =>
+            {
+                string newFio = fioBox.Text.Trim();
+                string newDolz = dolzhnostBox.Text.Trim();
+                int newBrig = (int)brigBox.Value;
+                int newMast = (int)mastBox.Value;
+
+                if (string.IsNullOrWhiteSpace(newFio) || string.IsNullOrWhiteSpace(newDolz))
+                {
+                    MessageBox.Show("Пожалуйста, заполните все поля.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                using (var conn = Database.GetConnection())
+                using (var cmd = new MySqlCommand(@"UPDATE personal SET fio=@fio, dolzhnost=@dol, kod_brigady=@b, kod_masterskoy=@m WHERE inn=@inn", conn))
+                {
+                    cmd.Parameters.AddWithValue("@fio", newFio);
+                    cmd.Parameters.AddWithValue("@dol", newDolz);
+                    cmd.Parameters.AddWithValue("@b", newBrig);
+                    cmd.Parameters.AddWithValue("@m", newMast);
+                    cmd.Parameters.AddWithValue("@inn", inn);
+
+                    try
+                    {
+                        cmd.ExecuteNonQuery();
+                        MessageBox.Show("Данные обновлены", "Успешно", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        editForm.Close();
+                        LoadPersonnel();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Ошибка обновления: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            };
+
+            editForm.Controls.Add(fioLabel);
+            editForm.Controls.Add(fioBox);
+            editForm.Controls.Add(dolzhnostLabel);
+            editForm.Controls.Add(dolzhnostBox);
+            editForm.Controls.Add(brigLabel);
+            editForm.Controls.Add(brigBox);
+            editForm.Controls.Add(mastLabel);
+            editForm.Controls.Add(mastBox);
+            editForm.Controls.Add(saveButton);
+
+            editForm.ShowDialog();
         }
 
         private void flowLayoutPanel1_Paint(object sender, PaintEventArgs e)
