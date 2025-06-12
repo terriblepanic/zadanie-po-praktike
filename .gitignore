@@ -1,0 +1,36 @@
+# Build results
+bin/
+obj/
+out/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/
+
+# VS
+.vs/
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Other
+*.log
+*.tmp
+
+# Ignore XML docs in builds
+*.xml
+
+# Ignore environment files
+.env
