@@ -334,7 +334,9 @@ namespace AutoRepairWorkshop
                 {
                     cmd.Parameters.AddWithValue("@b", newBrig);
                     cmd.Parameters.AddWithValue("@o", newOpis);
-                    cmd.Parameters.AddWithValue("@d", (object?)newEnd ?? DBNull.Value);
+                    // Nullable дата окончания требует явного преобразования,
+                    // чтобы избежать использования возможности C# 8.0
+                    cmd.Parameters.AddWithValue("@d", newEnd.HasValue ? (object)newEnd.Value : DBNull.Value);
                     cmd.Parameters.AddWithValue("@a", kodAvto);
                     cmd.Parameters.AddWithValue("@n", kodNeispr);
                     cmd.Parameters.AddWithValue("@p", post);
